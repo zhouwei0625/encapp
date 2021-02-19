@@ -1,23 +1,24 @@
 # encapp
 Easy way to test video encoders in Android in large scale.
 
-Facilitates an encoding mechanism for a large number of combinations in regards to
-- codecs
-- bitrate
-- framerate
-- i-frame interval
-- coding mode
+This tool provides an easy way to test an android video encoder by easily combining parameters like:
 
-I also have support for dynamic changes with fps, bitrate, and ltr.
+* codecs
+* bitrate
+* framerate
+* i-frame interval
+* coding mode
+
+encapp also has support for dynamically changing framerate, bitrate, and ltr.
 This is described in `scripts/offline_transcoding.sh`.
 
 
 ## 1. Prerequisites
 
-- adb connection
-- ffmpeg with decoding support for the codecs to be tested
-- android sdk setup and environment variables set
-- android ndk
+* adb connection to the device being tested.
+* ffmpeg with decoding support for the codecs to be tested
+* android sdk setup and environment variables set
+* android ndk
 
 
 ## 2. Operation
@@ -107,7 +108,9 @@ OK (1 test)
 
 
 INSTRUMENTATION_CODE: -1
+```
 
+```
 $ adb logcat |grep encapp |grep Codec:
 ...
 11-13 12:06:41.004  2789  2789 D encapp  : Codec:c2.android.aac.encoder type: audio/mp4a-latm
@@ -141,45 +144,161 @@ $ adb logcat |grep encapp |grep Codec:
 
 (5) run a quick encoding experiment with the app
 
-First, choose one of the codecs from step 4.
+(5.a) small qcif encoding
 
-Prepare the device with an actual file:
+First, choose one of the codecs from step 4. In this case, we will use `OMX.google.vp8.encoder`.
+
+Push the (raw) video file to be encoded into the device. Note that we are using a QCIF video (176x144).
 ```
-$ wget http://www.sunrayimage.com/download/image_examples/yuv420/tulips_yuv420_prog_planar_qcif.yuv
-$ adb push tulips_yuv420_prog_planar_qcif.yuv /sdcard/
+$ wget https://media.xiph.org/video/derf/y4m/akiyo_qcif.y4m -O /tmp/akiyo_qcif.y4m
+$ ffmpeg -i /tmp/akiyo_qcif.y4m -f rawvideo -pix_fmt yuv420p /tmp/akiyo_qcif.yuv
+$ adb push /tmp/akiyo_qcif.yuv /sdcard/
 ```
 
 Now run the vp8 encoder (`OMX.google.vp8.encoder`):
 ```
-$ adb shell am instrument -w -r -e key 10 -e encl OMX.google.vp8.encoder -e file /sdcard/tulips_yuv420_prog_planar_qcif.yuv -e test_timeout 20 -e resl 176x144 -e bitl 100 -e skfr false -e debug false -e ltrc 1 -e mode cbr -e class com.facebook.encapp.CodecValidationInstrumentedTest com.facebook.encapp.test/android.support.test.runner.AndroidJUnitRunner
+$ adb shell am instrument -w -r -e key 10 -e enc OMX.google.vp8.encoder -e file /sdcard/akiyo_qcif.yuv -e test_timeout 20 -e video_timeout 3 -e res 176x144 -e ref_res 176x144 -e bit 100 -e mod cbr -e fps 30 -e ifsize unlimited -e skfr false -e debug false -e ltrc 1 -e class com.facebook.encapp.CodecValidationInstrumentedTest com.facebook.encapp.test/android.support.test.runner.AndroidJUnitRunner
 ...
 ```
 
 And pull the encoded file:
+```
+$ adb pull /sdcard/omx.google.vp8.encoder_30fps_176x144_100000bps_iint10_m2.webm /tmp/
+$ ffprobe -i /tmp/omx.google.vp8.encoder_30fps_176x144_100000bps_iint10_m2.webm
+...
+  Duration: 00:00:02.93, start: 0.000000, bitrate: 113 kb/s
+    Stream #0:0: Video: vp8, yuv420p(tv, smpte170m/smpte170m/bt709, progressive), 176x144, SAR 1:1 DAR 11:9, 30 fps, 30 tbr, 1k tbn, 1k tbc (default)
+```
+
+(5.b) hd encoding
+
+Now, let's run the h264 encoder in an HD file. We will just select the codec ("h264"), and let encapp choose the actual encoder.
 
 ```
-$ adb pull /sdcard/omx.google.vp8.encoder_30fps_176x144_100000bps_iint10.webm /tmp/
-$ ffmpeg -i /tmp/omx.google.vp8.encoder_30fps_176x144_100000bps_iint10.webm
+$ wget https://media.xiph.org/video/derf/y4m/KristenAndSara_1280x720_60.y4m
+$ ffmpeg -i /tmp/KristenAndSara_1280x720_60.y4m -f rawvideo -pix_fmt yuv420p /tmp/KristenAndSara_1280x720_60.yuv
+$ adb push /tmp/KristenAndSara_1280x720_60.yuv /sdcard/
+```
+
+```
+$ adb shell am instrument -w -r -e key 10 -e enc h264 -e file /sdcard/KristenAndSara_1280x720_60.yuv -e test_timeout 20 -e video_timeout 3 -e res 1280x720 -e ref_res 1280x720 -e bit 100 -e mod cbr -e fps 60 -e ifsize unlimited -e skfr false -e debug false -e ltrc 1 -e class com.facebook.encapp.CodecValidationInstrumentedTest com.facebook.encapp.test/android.support.test.runner.AndroidJUnitRunner
 ...
-    Stream #0:0: Video: vp8, yuv420p(progressive), 176x144, SAR 1:1 DAR 11:9, 1k tbr, 1k tbn, 1k tbc (default)
 ```
 
 
 (6) run a multiple encoding experiment with the app
 
-Copy the `run_test.sh` script to your local directory and edit it.
-
-The example is using some command line arguments i.e.
+Run
 
 ```
-$ ./local_copy.sh original.yuv 1280x720 xx_seconds functional_description
+$ encapp_tests.py --config sample_config.json
 ```
 
-But those arguments could be set in the scripts as well (use bash, not sh).
+Open the `sample_config.json` file in a editor and edit the test.
+example, mp4 file:
 
-Arguments needed to be on the command line except when querying for codecs:
--e enc CODEC i.e. hevc
--e res WxH  i.e. 1280x720          
--e fps FPS i.e. 30 (fps)
--e mod BITRATE_MODE i.e. vbr
--e key KEY_INTERVAL i.e. 10 (sec)
+```
+ [
+    {
+        "description": "sample",
+        "input_files": [
+            "red_short_hq_x264_yuv420p.mp4"
+        ],
+        "use_surface_enc": 1,
+        "input_format": "mp4",
+        "input_resolution": "1280x720",
+        "codecs": [
+            "hevc"
+        ],
+        "encode_resolutions": [
+            "1280x720"
+        ],
+        "rc_modes": [
+            "cbr"
+        ],
+        "bitrates": [
+            3000,
+            7000,
+            10000
+        ],
+        "i_intervals": [
+            0,
+            1,
+            10
+        ],
+        "i_frame_sizes": [
+            "unlimited"
+        ],
+        "duration": 30
+    }
+]
+```
+
+raw file:
+```
+[
+    {
+        "description": "sample",
+        "input_files": [
+            "red_short_720p_nv12_2_35sec_gop-10sec.yuv"
+        ],
+        "use_surface_enc": 0,
+        "input_format": "nv12",
+        "input_resolution": "1280x720",
+        "codecs": [
+            "hevc"
+        ],
+        "encode_resolutions": [
+            "1280x720"
+        ],
+        "rc_modes": [
+            "cbr"
+        ],
+        "bitrates": [
+            3000,
+            7000,
+            10000
+        ],
+        "i_intervals": [
+            0,
+            1,
+            10
+        ],
+        "i_frame_sizes": [
+            "unlimited"
+        ],
+        "duration": 30
+    }
+]
+```
+
+Definitions of the keys in the sample json file
+'description':  Description of the test. It can be empty
+'input_files':  A list of input files
+'codecs':       A list of encoders
+'encode_resolutions': A list of encoding resolutions
+'rc_modes': A list of rate control modes
+'bitrates': A list of encoding bitrates
+'i_intervals': A list of I frame intervals
+'duration':    Duration of the encoding. This is ignored when enc loop > 0
+'use_surface_enc': Set to 1 use Android Mediacodec surface encoder. Default is 0
+'input_format': Input video format: mp4, nv12, yuv420p
+'input_resolution': Input video resolution
+'i_frame_sizes': An optional parameter.
+'temporal_layer_counts': Number of temporal layers
+'enc_loop': The number of time looping encoding. This is used for encoding time profiling. When enc_loop is greater than 1, there is no output video
+
+Run
+$ encapp_tests.py --test sample_config.json
+
+To run on a specific device, use
+
+$ encapp_tests.py --test sample_config.json --serial [device serial number]
+The script will automatically push the input files to the device.
+If the input file(s) are not in the working directory, use absolute path(s)
+
+The script saves all encoded videos and stats in an output directory per run.
+Stat files are in JSON format.
+
+To check the performance test result, run
+$ parse_encapp_stats.py --proctime --label "my funny session"  {encoder stat file}

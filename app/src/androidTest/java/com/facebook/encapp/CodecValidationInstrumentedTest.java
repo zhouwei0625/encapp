@@ -1,18 +1,15 @@
 package com.facebook.encapp;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.media.MediaCodec;
-import android.media.MediaCodecInfo;
-import android.media.MediaCodecList;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.SdkSuppress;
+import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.SearchCondition;
 import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObject;
-import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
 import android.util.Log;
 
@@ -20,21 +17,18 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.HashMap;
 
 import static org.hamcrest.core.IsNull.notNullValue;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertThat;
 
 /**
  * Instrumentation test, which will execute on an Android device.
  * <p>
  * Run instrumentation test:
- * adb shell am instrument
- * -w
- * -e class com.facebook.codecvalidate.com.facebook.encapp.CodecValidationInstrumentedTest
- * com.facebook.codecvalidate.test/android.support.test.runner.AndroidJUnitRunner
+ * adb shell am instrument \
+ *   -w -e class com.facebook.encapp.CodecValidationInstrumentedTest \
+ *   com.facebook.encapp.test/android.support.test.runner.AndroidJUnitRunner
  * <p>
  * Provide any of the following arguments for a custom test run. Examples below:
  * -e test_timeout 60 (Predicted test duration in minutes, default is 60 minutes.
@@ -56,7 +50,7 @@ import static org.junit.Assert.*;
  * @see <a href="http://d.android.com/tools/testing">Testing documentation</a>
  */
 @RunWith(AndroidJUnit4.class)
-@SdkSuppress(minSdkVersion = 26)
+@SdkSuppress(minSdkVersion = 25)
 public class CodecValidationInstrumentedTest {
     private static final String TAG = "encapp";
 
@@ -100,6 +94,14 @@ public class CodecValidationInstrumentedTest {
             InstrumentationRegistry.getArguments().getString("hierl");
     private static final String LIST_CODECS =
             InstrumentationRegistry.getArguments().getString("list_codecs");
+    private static final String IFRAME_SIZE_PRESET =
+            InstrumentationRegistry.getArguments().getString("ifsize");
+    private static final String TEMPORAL_LAYER_COUNT =
+            InstrumentationRegistry.getArguments().getString("tlc");
+    private static final String LOOP_INPUT =
+            InstrumentationRegistry.getArguments().getString("loop");
+    private static final String MULTIPLE_CONC_SESSIONS =
+            InstrumentationRegistry.getArguments().getString("conc");
 
     private static long UI_TIMEOUT = 60 * 60 * 1000; //60 minutes in ms
 
@@ -185,6 +187,22 @@ public class CodecValidationInstrumentedTest {
             mExtraDataHashMap.put("list_codecs", LIST_CODECS);
             Log.e(TAG, "LIST_CODECS: " + LIST_CODECS);
         }
+        if (IFRAME_SIZE_PRESET != null) {
+            mExtraDataHashMap.put("ifsize", IFRAME_SIZE_PRESET);
+            Log.e(TAG, "iframe size set: " + IFRAME_SIZE_PRESET);
+        }
+        if (TEMPORAL_LAYER_COUNT != null) {
+            mExtraDataHashMap.put("tlc", TEMPORAL_LAYER_COUNT);
+            Log.e(TAG, "Temporal layer count: " + TEMPORAL_LAYER_COUNT);
+        }
+        if (LOOP_INPUT != null) {
+            mExtraDataHashMap.put("loop", LOOP_INPUT);
+            Log.e(TAG, "loop input: " + LOOP_INPUT);
+        }
+        if (MULTIPLE_CONC_SESSIONS != null) {
+            mExtraDataHashMap.put("conc", MULTIPLE_CONC_SESSIONS);
+            Log.e(TAG, "concurrent sessions: " + MULTIPLE_CONC_SESSIONS);
+        }
     }
 
     @Before
@@ -215,10 +233,11 @@ public class CodecValidationInstrumentedTest {
         Log.d(TAG, "Collect extra data");
         collectExtraData();
         intent.putExtra("map", mExtraDataHashMap);
-
+        ActivityTestRule<MainActivity> mainActivityTestRule =
+                new ActivityTestRule<>(MainActivity.class);
         // Clear out any previous instances
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        context.startActivity(intent);
+        Activity activity = mainActivityTestRule.launchActivity(intent);
 
         // Wait for the app to appear
         mDevice.wait(Until.hasObject(By.pkg(TARGET_PACKAGE).depth(0)),

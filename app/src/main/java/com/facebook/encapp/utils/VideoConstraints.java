@@ -1,6 +1,6 @@
 // Copyright 2004-present Facebook. All Rights Reserved.
 
-package com.facebook.encapp;
+package com.facebook.encapp.utils;
 
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
@@ -18,6 +18,13 @@ public class VideoConstraints {
     public final static int OMX_SEC_COLOR_FormatNV12Tiled = 0x7FC00002;
     public final static int OMX_QCOM_COLOR_FormatYUV420PackedSemiPlanar32m = 0x7FA30C04;
 
+    public enum IFRAME_SIZE_PRESETS{
+        DEFAULT,
+        MEDIUM,
+        HUGE,
+        UNLIMITED,
+    }
+
     private String mVideoEncoderIdentifier;
     private int mBitRate;
     private Size mVideoSize; // Used for resolution values
@@ -29,7 +36,10 @@ public class VideoConstraints {
     private boolean mSkipFrames = false;
     private int mLtrCount = 4;
     private int mHierStructLayers = 0;
-
+    private int mColorRange = MediaFormat.COLOR_RANGE_LIMITED;
+    private int mColorStandard = MediaFormat.COLOR_STANDARD_BT601_NTSC;
+    private int mColorTransfer = MediaFormat.COLOR_TRANSFER_SDR_VIDEO;
+    private IFRAME_SIZE_PRESETS mIframeSize = IFRAME_SIZE_PRESETS.DEFAULT;
     //Bitrate mode 3,4 is
     //OMX_Video_ControlRateVariableSkipFrames,
     //OMX_Video_ControlRateConstantSkipFrames,
@@ -39,13 +49,14 @@ public class VideoConstraints {
     private int mProfile = -1;
     private int mProfileLevel = -1;
     private int mColorFormat = MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible;
+    private int mTemporalLayerCount = 1;
 
     // Bit rate
     public void setBitRate(int bitRate) {
         this.mBitRate = bitRate;
     }
 
-    private int getBitRate() {
+    public int getBitRate() {
         return mBitRate;
     }
 
@@ -125,12 +136,36 @@ public class VideoConstraints {
         return mLtrCount;
     }
 
-    private int getmBitrateMode() {
+    public int getmBitrateMode() {
         return mBitrateMode;
     }
 
     public int getProfile() {
         return mProfile;
+    }
+
+    public void setColorRange(int colorRange) {
+        mColorFormat = colorRange;
+    }
+
+    public int getColorRange() {
+        return mColorRange;
+    }
+
+    public void setColorTransfer(int colorTransfer) {
+        mColorTransfer = colorTransfer;
+    }
+
+    public int getColorTransfer() {
+        return mColorTransfer;
+    }
+
+    public void setColorStandard(int colorStandard) {
+        mColorStandard = colorStandard;
+    }
+
+    public int getColorStandard() {
+        return mColorStandard;
     }
 
     /**
@@ -167,11 +202,18 @@ public class VideoConstraints {
         encoderFormat.setInteger(MediaFormat.KEY_FRAME_RATE, (int)getFPS());
         encoderFormat.setInteger(MediaFormat.KEY_BITRATE_MODE, mBitrateMode);
         encoderFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, getKeyframeRate());
-
-        Log.d("Transcoder", "Create mode: br="+getBitRate() +
+        encoderFormat.setInteger(MediaFormat.KEY_COLOR_RANGE, mColorRange);
+        encoderFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, mColorFormat);
+        encoderFormat.setInteger(MediaFormat.KEY_COLOR_STANDARD, mColorStandard);
+        encoderFormat.setInteger(MediaFormat.KEY_COLOR_TRANSFER, mColorTransfer);
+        Log.d(TAG, "Create mode: br="+getBitRate() +
                 ", mode=" + getmBitrateMode() +
-                ", fps="+getFPS() +
-                ", i int="+getKeyframeRate() + " sec");
+                ", fps=" + getFPS() +
+                ", i int=" + getKeyframeRate() + " sec" +
+                ", color range: " + mColorRange +
+                ", color format: " + mColorFormat +
+                ", color standard: " + mColorStandard +
+                ", color transfer: " + mColorTransfer);
         return encoderFormat;
     }
 
@@ -261,5 +303,21 @@ public class VideoConstraints {
         }
 
         return str.toString();
+    }
+
+
+    public void setIframeSizePreset(IFRAME_SIZE_PRESETS preset) {
+        mIframeSize = preset;
+    }
+
+    public IFRAME_SIZE_PRESETS getIframeSizePreset() {
+        return mIframeSize;
+    }
+
+    public void setTemporalLayerCount( int temporalLayerCount ) {
+        mTemporalLayerCount = temporalLayerCount;
+    }
+    public int getTemporalLayerCount() {
+        return mTemporalLayerCount;
     }
 }
